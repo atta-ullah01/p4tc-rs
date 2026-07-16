@@ -1,0 +1,10 @@
+[package]
+name = "p4tc-sys"
+version = "0.1.0"
+edition = "2024"
+links = "p4tctrl"
+description = "Raw FFI bindings to libp4tctrl (P4TC runtime control)"
+license = "GPL-2.0"
+
+[dependencies]
+libc = { workspace = true }

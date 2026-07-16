@@ -1,0 +1,18 @@
+[package]
+name = "p4tc"
+version = "0.1.0"
+edition = "2024"
+description = "Safe Rust bindings for the P4TC runtime C API"
+license = "GPL-2.0"
+
+[dependencies]
+p4tc-sys = { path = "../p4tc-sys" }
+thiserror = { workspace = true }
+bitflags = { workspace = true }
+libc = { workspace = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+default = ["schema"]
+schema = ["dep:serde", "dep:serde_json"]
