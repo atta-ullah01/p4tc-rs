@@ -20,6 +20,10 @@ impl Context {
     pub(crate) fn as_ptr(&self) -> *mut p4tc_sys::p4tc_runt_ctx {
         self.inner.as_ptr()
     }
+
+    pub fn insert<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::InsertBuilder<'a> {
+        crate::table::InsertBuilder::new(self, pipeline, table)
+    }
 }
 
 impl Drop for Context {

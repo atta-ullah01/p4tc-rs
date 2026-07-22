@@ -71,6 +71,7 @@ unsafe extern "C" {
     pub fn p4tc_alloc_tbl_entry(
         obj: *mut p4tc_obj, key: *mut p4tc_key, flags: c_uint, entity: c_int,
     ) -> *mut p4tc_runt_tbl_attrs;
+    pub fn p4tc_runt_tbl_attrs_prio_set(e: *mut p4tc_runt_tbl_attrs, v: c_uint) -> c_int;
 
     // action
     pub fn p4tc_create_runt_act(
