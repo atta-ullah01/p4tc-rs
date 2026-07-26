@@ -63,6 +63,7 @@ unsafe extern "C" {
     pub fn p4tc_obj_create(pname: *const c_char, obj_type: c_int) -> *mut p4tc_obj;
     pub fn p4tc_obj_destroy(obj: *mut p4tc_obj);
     pub fn p4tc_obj_objname_set(obj: *mut p4tc_obj, name: *const c_char) -> c_int;
+    pub fn p4tc_obj_filter_set(obj: *mut p4tc_obj, filter: *const c_char) -> c_int;
 
     // key
     pub fn p4tc_make_key(obj: *mut p4tc_obj, n: c_int, kfs: *const *const c_char) -> *mut p4tc_key;

@@ -24,6 +24,14 @@ impl Context {
     pub fn insert<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::InsertBuilder<'a> {
         crate::table::InsertBuilder::new(self, pipeline, table)
     }
+
+    pub fn update<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::UpdateBuilder<'a> {
+        crate::table::UpdateBuilder::new(self, pipeline, table)
+    }
+
+    pub fn delete<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::DeleteBuilder<'a> {
+        crate::table::DeleteBuilder::new(self, pipeline, table)
+    }
 }
 
 impl Drop for Context {
