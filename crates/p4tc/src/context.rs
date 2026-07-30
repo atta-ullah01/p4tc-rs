@@ -32,6 +32,15 @@ impl Context {
     pub fn delete<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::DeleteBuilder<'a> {
         crate::table::DeleteBuilder::new(self, pipeline, table)
     }
+
+    pub fn get<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::GetBuilder<'a> {
+        crate::table::GetBuilder::new(self, pipeline, table)
+    }
+
+    /// Dump all entries from a table. Shorthand for `get()` without keys.
+    pub fn dump<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::GetBuilder<'a> {
+        crate::table::GetBuilder::new(self, pipeline, table)
+    }
 }
 
 impl Drop for Context {

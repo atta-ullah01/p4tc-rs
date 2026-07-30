@@ -98,4 +98,35 @@ unsafe extern "C" {
         flags: c_uint, cb: p4tc_callback, cookie: *mut u64,
     ) -> c_int;
     pub fn p4tc_resp_handle(ctx: *mut p4tc_runt_ctx) -> c_int;
+
+    // obj iterators
+    pub fn p4tc_obj_tbl_entry_first(obj: *const p4tc_obj) -> *const p4tc_runt_tbl_attrs;
+    pub fn p4tc_obj_tbl_entry_next(e: *const p4tc_runt_tbl_attrs) -> *const p4tc_runt_tbl_attrs;
+
+    // table entry getters
+    pub fn p4tc_runt_tbl_attrs_name_get(e: *const p4tc_runt_tbl_attrs) -> *const c_char;
+    pub fn p4tc_runt_tbl_attrs_prio_get(e: *const p4tc_runt_tbl_attrs) -> c_uint;
+    pub fn p4tc_runt_tbl_attrs_key_get(e: *const p4tc_runt_tbl_attrs, len: *mut c_uint) -> *const libc::c_void;
+    pub fn p4tc_runt_tbl_attrs_mask_get(e: *const p4tc_runt_tbl_attrs, len: *mut c_uint) -> *const libc::c_void;
+    pub fn p4tc_runt_tbl_attrs_keysz_get(e: *const p4tc_runt_tbl_attrs) -> c_uint;
+    pub fn p4tc_runt_tbl_attrs_perms_get(e: *const p4tc_runt_tbl_attrs) -> c_uint;
+    pub fn p4tc_runt_tbl_attrs_dyn_get(e: *const p4tc_runt_tbl_attrs) -> c_int;
+    pub fn p4tc_runt_tbl_attrs_aging_get(e: *const p4tc_runt_tbl_attrs) -> c_uint;
+
+    // table entry → action iterators
+    pub fn p4tc_runt_tbl_attrs_act_first(e: *const p4tc_runt_tbl_attrs) -> *const p4tc_runt_act_attrs;
+    pub fn p4tc_runt_tbl_attrs_act_next(a: *const p4tc_runt_act_attrs) -> *const p4tc_runt_act_attrs;
+
+    // action getters
+    pub fn p4tc_runt_act_attrs_name_get(a: *const p4tc_runt_act_attrs) -> *const c_char;
+    pub fn p4tc_runt_act_attrs_index_get(a: *const p4tc_runt_act_attrs) -> c_uint;
+
+    // action → param iterators
+    pub fn p4tc_runt_act_attrs_param_first(a: *const p4tc_runt_act_attrs) -> *const p4tc_runt_param_attrs;
+    pub fn p4tc_runt_act_attrs_param_next(p: *const p4tc_runt_param_attrs) -> *const p4tc_runt_param_attrs;
+
+    // param getters
+    pub fn p4tc_runt_param_attrs_name_get(p: *const p4tc_runt_param_attrs) -> *const c_char;
+    pub fn p4tc_runt_param_attrs_type_name_get(p: *const p4tc_runt_param_attrs) -> *const c_char;
+    pub fn p4tc_runt_param_attrs_value_get(p: *const p4tc_runt_param_attrs, len: *mut c_uint) -> *const libc::c_void;
 }

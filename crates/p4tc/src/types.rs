@@ -34,6 +34,18 @@ pub enum Phase {
     Abt = 4,
 }
 
+impl Phase {
+    pub fn from_raw(v: i32) -> Self {
+        match v {
+            1 => Self::Sot,
+            2 => Self::Mot,
+            3 => Self::Eot,
+            4 => Self::Abt,
+            _ => Self::Unspec,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum Policy {
