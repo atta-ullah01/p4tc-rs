@@ -73,6 +73,10 @@ unsafe extern "C" {
         obj: *mut p4tc_obj, key: *mut p4tc_key, flags: c_uint, entity: c_int,
     ) -> *mut p4tc_runt_tbl_attrs;
     pub fn p4tc_runt_tbl_attrs_prio_set(e: *mut p4tc_runt_tbl_attrs, v: c_uint) -> c_int;
+    pub fn p4tc_runt_tbl_attrs_aging_set(e: *mut p4tc_runt_tbl_attrs, v: c_uint) -> c_int;
+    pub fn p4tc_runt_tbl_attrs_profile_id_set(e: *mut p4tc_runt_tbl_attrs, v: c_uint) -> c_int;
+    pub fn p4tc_runt_tbl_attrs_perms_set(e: *mut p4tc_runt_tbl_attrs, v: c_uint) -> c_int;
+    pub fn p4tc_runt_tbl_attrs_dyn_set(e: *mut p4tc_runt_tbl_attrs, v: c_int) -> c_int;
 
     // action
     pub fn p4tc_create_runt_act(

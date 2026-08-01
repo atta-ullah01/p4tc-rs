@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::types::{Entity, MsgFlags};
 use crate::Context;
-use super::obj::{self, ObjHandle};
+use super::obj::{self, EntryAttrs, ObjHandle};
 
 pub struct InsertBuilder<'a> {
     ctx: &'a Context,
@@ -10,7 +10,7 @@ pub struct InsertBuilder<'a> {
     keys: Vec<String>,
     action_path: Option<String>,
     action_params: Vec<String>,
-    priority: u32,
+    attrs: EntryAttrs,
     entity: Entity,
     flags: MsgFlags,
 }
@@ -22,7 +22,7 @@ impl<'a> InsertBuilder<'a> {
             keys: Vec::new(),
             action_path: None,
             action_params: Vec::new(),
-            priority: 0,
+            attrs: EntryAttrs::default(),
             entity: Entity::Tc,
             flags: MsgFlags::empty(),
         }
@@ -43,10 +43,11 @@ impl<'a> InsertBuilder<'a> {
         self
     }
 
-    pub fn priority(mut self, prio: u32) -> Self {
-        self.priority = prio;
-        self
-    }
+    pub fn priority(mut self, v: u32) -> Self { self.attrs.priority = v; self }
+    pub fn aging_ms(mut self, v: u32) -> Self { self.attrs.aging_ms = Some(v); self }
+    pub fn profile_id(mut self, v: u32) -> Self { self.attrs.profile_id = Some(v); self }
+    pub fn permissions(mut self, v: u32) -> Self { self.attrs.permissions = Some(v); self }
+    pub fn dynamic(mut self, v: bool) -> Self { self.attrs.dynamic = Some(v); self }
 
     pub fn entity(mut self, entity: Entity) -> Self {
         self.entity = entity;
@@ -59,10 +60,7 @@ impl<'a> InsertBuilder<'a> {
 
         let key = obj.make_key(&self.keys)?;
         let entry = obj.alloc_entry(key, self.entity as i32)?;
-
-        if self.priority > 0 {
-            unsafe { p4tc_sys::p4tc_runt_tbl_attrs_prio_set(entry, self.priority) };
-        }
+        obj::apply_entry_attrs(entry, &self.attrs);
 
         if let Some(ref path) = self.action_path {
             obj::attach_action(entry, path, &self.action_params)?;

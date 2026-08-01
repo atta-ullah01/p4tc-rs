@@ -126,3 +126,32 @@ pub(crate) fn fire_crud(
     }
     Ok(())
 }
+
+#[derive(Default)]
+pub(crate) struct EntryAttrs {
+    pub priority: u32,
+    pub aging_ms: Option<u32>,
+    pub profile_id: Option<u32>,
+    pub permissions: Option<u32>,
+    pub dynamic: Option<bool>,
+}
+
+pub(crate) fn apply_entry_attrs(entry: *mut p4tc_sys::p4tc_runt_tbl_attrs, attrs: &EntryAttrs) {
+    unsafe {
+        if attrs.priority > 0 {
+            p4tc_sys::p4tc_runt_tbl_attrs_prio_set(entry, attrs.priority);
+        }
+        if let Some(v) = attrs.aging_ms {
+            p4tc_sys::p4tc_runt_tbl_attrs_aging_set(entry, v);
+        }
+        if let Some(v) = attrs.profile_id {
+            p4tc_sys::p4tc_runt_tbl_attrs_profile_id_set(entry, v);
+        }
+        if let Some(v) = attrs.permissions {
+            p4tc_sys::p4tc_runt_tbl_attrs_perms_set(entry, v);
+        }
+        if let Some(v) = attrs.dynamic {
+            p4tc_sys::p4tc_runt_tbl_attrs_dyn_set(entry, v as i32);
+        }
+    }
+}
