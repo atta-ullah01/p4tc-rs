@@ -58,6 +58,7 @@ unsafe extern "C" {
     // runtime context
     pub fn p4tc_runt_ctx_create(tml_type: c_int) -> *mut p4tc_runt_ctx;
     pub fn p4tc_runt_ctx_destroy(ctx: *mut p4tc_runt_ctx);
+    pub fn p4tc_runt_ctx_dflt_cb_set(ctx: *mut p4tc_runt_ctx, cb: p4tc_callback);
 
     // object construction
     pub fn p4tc_obj_create(pname: *const c_char, obj_type: c_int) -> *mut p4tc_obj;

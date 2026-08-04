@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::types::MsgFlags;
+use crate::types::{MsgFlags, Phase};
 use crate::Context;
 use super::obj::{self, ObjHandle};
 
@@ -32,7 +32,7 @@ impl<'a> DeleteBuilder<'a> {
         self
     }
 
-    pub fn execute(self) -> Result<()> {
+    fn build_obj(&self) -> Result<ObjHandle> {
         let obj = ObjHandle::new(self.pipeline)?;
         obj.set_table(self.table)?;
 
@@ -44,7 +44,18 @@ impl<'a> DeleteBuilder<'a> {
             let key = obj.make_key(&self.keys)?;
             obj.alloc_entry(key, p4tc_sys::P4TC_ENTITY_KERNEL)?;
         }
+        Ok(obj)
+    }
 
-        obj::fire_crud(p4tc_sys::p4tc_del, self.ctx, &obj, self.flags.bits(), "delete")
+    pub fn execute(self) -> Result<()> {
+        let obj = self.build_obj()?;
+        obj::fire_crud(p4tc_sys::p4tc_del, self.ctx, &obj,
+                       self.flags.bits(), "delete")
+    }
+
+    pub fn execute_with<F: FnMut(Phase)>(self, mut cb: F) -> Result<()> {
+        let obj = self.build_obj()?;
+        obj::fire_crud_with_cb(p4tc_sys::p4tc_del, self.ctx, &obj,
+                               self.flags.bits(), "delete", &mut cb)
     }
 }

@@ -34,7 +34,10 @@ impl<'a> GetBuilder<'a> {
         self
     }
 
-    pub fn execute(self) -> Result<Vec<TableEntry>> {
+    pub fn execute<F>(self, mut callback: F) -> Result<()>
+    where
+        F: FnMut(&[TableEntry], Phase),
+    {
         let obj = ObjHandle::new(self.pipeline)?;
         obj.set_table(self.table)?;
 
@@ -47,12 +50,10 @@ impl<'a> GetBuilder<'a> {
             obj.alloc_entry(key, p4tc_sys::P4TC_ENTITY_KERNEL)?;
         }
 
-        // Collected entries from the callback
-        let mut captured: Vec<TableEntry> = Vec::new();
-        let captured_ptr: *mut Vec<TableEntry> = &mut captured;
+        let mut state = CallbackState { func: &mut callback };
+        let cookie = &mut state as *mut CallbackState<F> as *mut u64;
 
-        // Trampoline: C calls this, we cast cookie back to our Vec
-        unsafe extern "C" fn trampoline(
+        unsafe extern "C" fn trampoline<F: FnMut(&[TableEntry], Phase)>(
             obj_ptr: *const p4tc_sys::p4tc_obj,
             _ctx: *mut p4tc_sys::p4tc_runt_ctx,
             cookie: *mut u64,
@@ -62,8 +63,9 @@ impl<'a> GetBuilder<'a> {
             match phase {
                 Phase::Sot | Phase::Mot => {
                     if !obj_ptr.is_null() {
-                        let entries = unsafe { &mut *(cookie as *mut Vec<TableEntry>) };
-                        entries.extend(unsafe { parse::parse_obj(obj_ptr) });
+                        let state = unsafe { &mut *(cookie as *mut CallbackState<F>) };
+                        let entries = unsafe { parse::parse_obj(obj_ptr) };
+                        (state.func)(&entries, phase);
                     }
                     0
                 }
@@ -77,8 +79,8 @@ impl<'a> GetBuilder<'a> {
                 self.ctx.as_ptr(),
                 obj.as_ptr(),
                 self.flags.bits(),
-                Some(trampoline),
-                captured_ptr as *mut u64,
+                Some(trampoline::<F>),
+                cookie,
             )
         };
         if ret != 0 {
@@ -88,6 +90,10 @@ impl<'a> GetBuilder<'a> {
             });
         }
 
-        Ok(captured)
+        Ok(())
     }
+}
+
+struct CallbackState<'a, F> {
+    func: &'a mut F,
 }

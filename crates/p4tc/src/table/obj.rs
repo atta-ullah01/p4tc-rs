@@ -116,7 +116,55 @@ pub(crate) fn fire_crud(
     op_name: &'static str,
 ) -> Result<()> {
     let ret = unsafe {
-        crud_fn(ctx.as_ptr(), obj.as_ptr(), flags, None, std::ptr::null_mut())
+        crud_fn(ctx.as_ptr(), obj.as_ptr(), flags,
+                None, std::ptr::null_mut())
+    };
+    if ret != 0 {
+        return Err(Error::Crud {
+            op: op_name,
+            source: std::io::Error::last_os_error(),
+        });
+    }
+    Ok(())
+}
+
+/// Fire a CRUD operation with a per-call callback.
+/// Auto-sets ACK so the kernel sends a response that terminates the
+/// C library's receive loop.
+pub(crate) fn fire_crud_with_cb<F: FnMut(crate::types::Phase)>(
+    crud_fn: unsafe extern "C" fn(
+        *mut p4tc_sys::p4tc_runt_ctx,
+        *mut p4tc_sys::p4tc_obj,
+        libc::c_uint,
+        p4tc_sys::p4tc_callback,
+        *mut u64,
+    ) -> libc::c_int,
+    ctx: &crate::Context,
+    obj: &ObjHandle,
+    flags: u32,
+    op_name: &'static str,
+    cb: &mut F,
+) -> Result<()> {
+    unsafe extern "C" fn trampoline<F: FnMut(crate::types::Phase)>(
+        _obj: *const p4tc_sys::p4tc_obj,
+        _ctx: *mut p4tc_sys::p4tc_runt_ctx,
+        cookie: *mut u64,
+        phase_val: libc::c_int,
+    ) -> libc::c_int {
+        let phase = crate::types::Phase::from_raw(phase_val);
+        let cb = unsafe { &mut *(cookie as *mut F) };
+        cb(phase);
+        match phase {
+            crate::types::Phase::Abt => -1,
+            _ => 0,
+        }
+    }
+
+    let cookie = cb as *mut F as *mut u64;
+
+    let ret = unsafe {
+        crud_fn(ctx.as_ptr(), obj.as_ptr(), flags,
+                Some(trampoline::<F>), cookie)
     };
     if ret != 0 {
         return Err(Error::Crud {

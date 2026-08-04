@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::types::{Entity, MsgFlags};
+use crate::types::{Entity, MsgFlags, Phase};
 use crate::Context;
 use super::obj::{self, EntryAttrs, ObjHandle};
 
@@ -54,7 +54,7 @@ impl<'a> InsertBuilder<'a> {
         self
     }
 
-    pub fn execute(self) -> Result<()> {
+    fn build_obj(&self) -> Result<ObjHandle> {
         let obj = ObjHandle::new(self.pipeline)?;
         obj.set_table(self.table)?;
 
@@ -65,7 +65,18 @@ impl<'a> InsertBuilder<'a> {
         if let Some(ref path) = self.action_path {
             obj::attach_action(entry, path, &self.action_params)?;
         }
+        Ok(obj)
+    }
 
-        obj::fire_crud(p4tc_sys::p4tc_create, self.ctx, &obj, self.flags.bits(), "create")
+    pub fn execute(self) -> Result<()> {
+        let obj = self.build_obj()?;
+        obj::fire_crud(p4tc_sys::p4tc_create, self.ctx, &obj,
+                       self.flags.bits(), "create")
+    }
+
+    pub fn execute_with<F: FnMut(Phase)>(self, mut cb: F) -> Result<()> {
+        let obj = self.build_obj()?;
+        obj::fire_crud_with_cb(p4tc_sys::p4tc_create, self.ctx, &obj,
+                               self.flags.bits(), "create", &mut cb)
     }
 }
