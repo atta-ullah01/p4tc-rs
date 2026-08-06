@@ -129,8 +129,6 @@ pub(crate) fn fire_crud(
 }
 
 /// Fire a CRUD operation with a per-call callback.
-/// Auto-sets ACK so the kernel sends a response that terminates the
-/// C library's receive loop.
 pub(crate) fn fire_crud_with_cb<F: FnMut(crate::types::Phase)>(
     crud_fn: unsafe extern "C" fn(
         *mut p4tc_sys::p4tc_runt_ctx,
@@ -145,27 +143,40 @@ pub(crate) fn fire_crud_with_cb<F: FnMut(crate::types::Phase)>(
     op_name: &'static str,
     cb: &mut F,
 ) -> Result<()> {
+    use std::cell::Cell;
+
+    thread_local! {
+        static CB_PTR: Cell<usize> = const { Cell::new(0) };
+    }
+
     unsafe extern "C" fn trampoline<F: FnMut(crate::types::Phase)>(
         _obj: *const p4tc_sys::p4tc_obj,
         _ctx: *mut p4tc_sys::p4tc_runt_ctx,
-        cookie: *mut u64,
+        _cookie: *mut u64,
         phase_val: libc::c_int,
     ) -> libc::c_int {
         let phase = crate::types::Phase::from_raw(phase_val);
-        let cb = unsafe { &mut *(cookie as *mut F) };
-        cb(phase);
+        CB_PTR.with(|cell| {
+            let ptr = cell.get() as *mut F;
+            if !ptr.is_null() {
+                unsafe { (*ptr)(phase) };
+            }
+        });
         match phase {
             crate::types::Phase::Abt => -1,
             _ => 0,
         }
     }
 
-    let cookie = cb as *mut F as *mut u64;
+    CB_PTR.with(|cell| cell.set(cb as *mut F as usize));
 
     let ret = unsafe {
         crud_fn(ctx.as_ptr(), obj.as_ptr(), flags,
-                Some(trampoline::<F>), cookie)
+                Some(trampoline::<F>), std::ptr::null_mut())
     };
+
+    CB_PTR.with(|cell| cell.set(0));
+
     if ret != 0 {
         return Err(Error::Crud {
             op: op_name,

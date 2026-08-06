@@ -106,7 +106,7 @@ unsafe extern "C" {
 
     // obj iterators
     pub fn p4tc_obj_tbl_entry_first(obj: *const p4tc_obj) -> *const p4tc_runt_tbl_attrs;
-    pub fn p4tc_obj_tbl_entry_next(e: *const p4tc_runt_tbl_attrs) -> *const p4tc_runt_tbl_attrs;
+    pub fn p4tc_obj_tbl_entry_next(obj: *const p4tc_obj, cur: *const p4tc_runt_tbl_attrs) -> *const p4tc_runt_tbl_attrs;
 
     // table entry getters
     pub fn p4tc_runt_tbl_attrs_name_get(e: *const p4tc_runt_tbl_attrs) -> *const c_char;
@@ -120,7 +120,7 @@ unsafe extern "C" {
 
     // table entry → action iterators
     pub fn p4tc_runt_tbl_attrs_act_first(e: *const p4tc_runt_tbl_attrs) -> *const p4tc_runt_act_attrs;
-    pub fn p4tc_runt_tbl_attrs_act_next(a: *const p4tc_runt_act_attrs) -> *const p4tc_runt_act_attrs;
+    pub fn p4tc_runt_tbl_attrs_act_next(e: *const p4tc_runt_tbl_attrs, cur: *const p4tc_runt_act_attrs) -> *const p4tc_runt_act_attrs;
 
     // action getters
     pub fn p4tc_runt_act_attrs_name_get(a: *const p4tc_runt_act_attrs) -> *const c_char;
@@ -128,7 +128,7 @@ unsafe extern "C" {
 
     // action → param iterators
     pub fn p4tc_runt_act_attrs_param_first(a: *const p4tc_runt_act_attrs) -> *const p4tc_runt_param_attrs;
-    pub fn p4tc_runt_act_attrs_param_next(p: *const p4tc_runt_param_attrs) -> *const p4tc_runt_param_attrs;
+    pub fn p4tc_runt_act_attrs_param_next(a: *const p4tc_runt_act_attrs, cur: *const p4tc_runt_param_attrs) -> *const p4tc_runt_param_attrs;
 
     // param getters
     pub fn p4tc_runt_param_attrs_name_get(p: *const p4tc_runt_param_attrs) -> *const c_char;

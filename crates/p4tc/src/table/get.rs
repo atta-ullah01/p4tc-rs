@@ -38,6 +38,12 @@ impl<'a> GetBuilder<'a> {
     where
         F: FnMut(&[TableEntry], Phase),
     {
+        use std::cell::Cell;
+
+        thread_local! {
+            static CB_PTR: Cell<usize> = const { Cell::new(0) };
+        }
+
         let obj = ObjHandle::new(self.pipeline)?;
         obj.set_table(self.table)?;
 
@@ -50,22 +56,23 @@ impl<'a> GetBuilder<'a> {
             obj.alloc_entry(key, p4tc_sys::P4TC_ENTITY_KERNEL)?;
         }
 
-        let mut state = CallbackState { func: &mut callback };
-        let cookie = &mut state as *mut CallbackState<F> as *mut u64;
-
         unsafe extern "C" fn trampoline<F: FnMut(&[TableEntry], Phase)>(
             obj_ptr: *const p4tc_sys::p4tc_obj,
             _ctx: *mut p4tc_sys::p4tc_runt_ctx,
-            cookie: *mut u64,
+            _cookie: *mut u64,
             phase_val: libc::c_int,
         ) -> libc::c_int {
             let phase = Phase::from_raw(phase_val);
             match phase {
                 Phase::Sot | Phase::Mot => {
                     if !obj_ptr.is_null() {
-                        let state = unsafe { &mut *(cookie as *mut CallbackState<F>) };
-                        let entries = unsafe { parse::parse_obj(obj_ptr) };
-                        (state.func)(&entries, phase);
+                        CB_PTR.with(|cell| {
+                            let ptr = cell.get() as *mut F;
+                            if !ptr.is_null() {
+                                let entries = unsafe { parse::parse_obj(obj_ptr) };
+                                unsafe { (*ptr)(&entries, phase) };
+                            }
+                        });
                     }
                     0
                 }
@@ -74,15 +81,20 @@ impl<'a> GetBuilder<'a> {
             }
         }
 
+        CB_PTR.with(|cell| cell.set(&mut callback as *mut F as usize));
+
         let ret = unsafe {
             p4tc_sys::p4tc_get(
                 self.ctx.as_ptr(),
                 obj.as_ptr(),
                 self.flags.bits(),
                 Some(trampoline::<F>),
-                cookie,
+                std::ptr::null_mut(),
             )
         };
+
+        CB_PTR.with(|cell| cell.set(0));
+
         if ret != 0 {
             return Err(Error::Crud {
                 op: "get",
@@ -92,8 +104,4 @@ impl<'a> GetBuilder<'a> {
 
         Ok(())
     }
-}
-
-struct CallbackState<'a, F> {
-    func: &'a mut F,
 }

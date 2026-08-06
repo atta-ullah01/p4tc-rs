@@ -32,7 +32,7 @@ unsafe fn parse_action(a: *const p4tc_sys::p4tc_runt_act_attrs) -> Action {
     let mut p = unsafe { p4tc_sys::p4tc_runt_act_attrs_param_first(a) };
     while !p.is_null() {
         params.push(unsafe { parse_param(p) });
-        p = unsafe { p4tc_sys::p4tc_runt_act_attrs_param_next(p) };
+        p = unsafe { p4tc_sys::p4tc_runt_act_attrs_param_next(a, p) };
     }
 
     Action {
@@ -58,7 +58,7 @@ unsafe fn parse_entry(e: *const p4tc_sys::p4tc_runt_tbl_attrs) -> TableEntry {
     let mut a = unsafe { p4tc_sys::p4tc_runt_tbl_attrs_act_first(e) };
     while !a.is_null() {
         actions.push(unsafe { parse_action(a) });
-        a = unsafe { p4tc_sys::p4tc_runt_tbl_attrs_act_next(a) };
+        a = unsafe { p4tc_sys::p4tc_runt_tbl_attrs_act_next(e, a) };
     }
 
     TableEntry {
@@ -79,7 +79,7 @@ pub(crate) unsafe fn parse_obj(obj: *const p4tc_sys::p4tc_obj) -> Vec<TableEntry
     let mut e = unsafe { p4tc_sys::p4tc_obj_tbl_entry_first(obj) };
     while !e.is_null() {
         entries.push(unsafe { parse_entry(e) });
-        e = unsafe { p4tc_sys::p4tc_obj_tbl_entry_next(e) };
+        e = unsafe { p4tc_sys::p4tc_obj_tbl_entry_next(obj, e) };
     }
     entries
 }
