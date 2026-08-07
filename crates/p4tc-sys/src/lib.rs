@@ -134,4 +134,10 @@ unsafe extern "C" {
     pub fn p4tc_runt_param_attrs_name_get(p: *const p4tc_runt_param_attrs) -> *const c_char;
     pub fn p4tc_runt_param_attrs_type_name_get(p: *const p4tc_runt_param_attrs) -> *const c_char;
     pub fn p4tc_runt_param_attrs_value_get(p: *const p4tc_runt_param_attrs, len: *mut c_uint) -> *const libc::c_void;
+
+    // subscription (blocking event loop)
+    pub fn p4tc_subscribe(
+        ctx: *mut p4tc_runt_ctx, obj: *const p4tc_obj,
+        flags: c_uint, cb: p4tc_callback, cookie: *mut u64,
+    ) -> c_int;
 }

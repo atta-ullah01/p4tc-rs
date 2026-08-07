@@ -41,6 +41,26 @@ impl Context {
     pub fn dump<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::GetBuilder<'a> {
         crate::table::GetBuilder::new(self, pipeline, table)
     }
+
+    /// Subscribe to real-time events on a table.
+    pub fn subscribe<F>(
+        &self, pipeline: &str, table: &str, callback: F,
+    ) -> crate::error::Result<crate::subscribe::Subscription>
+    where
+        F: FnMut(&[crate::table::TableEntry], crate::types::Phase) + Send + 'static,
+    {
+        crate::subscribe::spawn(pipeline, table, None, callback)
+    }
+
+    /// Subscribe with a filter expression.
+    pub fn subscribe_filtered<F>(
+        &self, pipeline: &str, table: &str, filter: &str, callback: F,
+    ) -> crate::error::Result<crate::subscribe::Subscription>
+    where
+        F: FnMut(&[crate::table::TableEntry], crate::types::Phase) + Send + 'static,
+    {
+        crate::subscribe::spawn(pipeline, table, Some(filter), callback)
+    }
 }
 
 impl Drop for Context {
