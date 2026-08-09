@@ -19,6 +19,22 @@ pub struct ActionSchema {
     pub params: Vec<ParamSchema>,
 }
 
+impl ActionSchema {
+    pub fn validate_params(&self, params: &HashMap<&str, &str>) -> Result<Vec<String>, String> {
+        let schema_names: Vec<&str> = self.params.iter().map(|p| p.name.as_str()).collect();
+        let unknown: Vec<&&str> = params.keys().filter(|k| !schema_names.contains(k)).collect();
+        if !unknown.is_empty() {
+            return Err(format!(
+                "unknown param(s) {:?} for action '{}', available: {:?}",
+                unknown, self.name, schema_names,
+            ));
+        }
+        Ok(self.params.iter()
+            .filter_map(|p| params.get(p.name.as_str()).map(|v| v.to_string()))
+            .collect())
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct KeyFieldSchema {
     pub id: u32,
@@ -53,6 +69,20 @@ where
 }
 
 impl TableSchema {
+    pub fn validate_key(&self, key: &HashMap<&str, &str>) -> Result<Vec<String>, String> {
+        let schema_names: Vec<&str> = self.key_fields.iter().map(|f| f.name.as_str()).collect();
+        let unknown: Vec<&&str> = key.keys().filter(|k| !schema_names.contains(k)).collect();
+        if !unknown.is_empty() {
+            return Err(format!(
+                "unknown key field(s) {:?}, available: {:?}",
+                unknown, schema_names,
+            ));
+        }
+        Ok(self.key_fields.iter()
+            .filter_map(|f| key.get(f.name.as_str()).map(|v| v.to_string()))
+            .collect())
+    }
+
     pub fn get_action(&self, name: &str) -> Option<&ActionSchema> {
         self.actions.get(name)
     }
