@@ -140,4 +140,25 @@ unsafe extern "C" {
         ctx: *mut p4tc_runt_ctx, obj: *const p4tc_obj,
         flags: c_uint, cb: p4tc_callback, cookie: *mut u64,
     ) -> c_int;
+
+    // extern construction
+    pub fn p4tc_create_runt_ext(
+        obj: *mut p4tc_obj, kind: *const c_char, inst: *const c_char,
+        key: c_uint, n_params: c_int, params: *const *const c_char,
+    ) -> *mut p4tc_runt_ext_attrs;
+
+    // extern obj iterators
+    pub fn p4tc_obj_ext_first(obj: *const p4tc_obj) -> *const p4tc_runt_ext_attrs;
+    pub fn p4tc_obj_ext_next(obj: *const p4tc_obj, cur: *const p4tc_runt_ext_attrs) -> *const p4tc_runt_ext_attrs;
+
+    // extern getters
+    pub fn p4tc_runt_ext_attrs_kind_get(x: *const p4tc_runt_ext_attrs) -> *const c_char;
+    pub fn p4tc_runt_ext_attrs_inst_get(x: *const p4tc_runt_ext_attrs) -> *const c_char;
+    pub fn p4tc_runt_ext_attrs_key_get(x: *const p4tc_runt_ext_attrs) -> c_uint;
+    pub fn p4tc_runt_ext_attrs_ext_id_get(x: *const p4tc_runt_ext_attrs) -> c_uint;
+    pub fn p4tc_runt_ext_attrs_inst_id_get(x: *const p4tc_runt_ext_attrs) -> c_uint;
+
+    // extern param iterators
+    pub fn p4tc_runt_ext_attrs_param_first(x: *const p4tc_runt_ext_attrs) -> *const p4tc_runt_param_attrs;
+    pub fn p4tc_runt_ext_attrs_param_next(x: *const p4tc_runt_ext_attrs, cur: *const p4tc_runt_param_attrs) -> *const p4tc_runt_param_attrs;
 }

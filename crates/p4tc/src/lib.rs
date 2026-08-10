@@ -14,7 +14,7 @@ mod schema;
 
 pub use context::Context;
 pub use error::{Error, Result};
-pub use extern_::ExternEntry;
+pub use extern_::{ExternEntry, ExternInsertBuilder, ExternUpdateBuilder, ExternDeleteBuilder, ExternGetBuilder};
 pub use pipeline::Pipeline;
 pub use subscribe::Subscription;
 pub use table::{Action, DeleteBuilder, GetBuilder, InsertBuilder, Param, TableEntry, UpdateBuilder};

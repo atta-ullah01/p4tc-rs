@@ -15,7 +15,7 @@ unsafe fn ptr_to_bytes(p: *const libc::c_void, len: u32) -> Vec<u8> {
     unsafe { std::slice::from_raw_parts(p as *const u8, len as usize) }.to_vec()
 }
 
-unsafe fn parse_param(p: *const p4tc_sys::p4tc_runt_param_attrs) -> Param {
+pub(crate) unsafe fn parse_param(p: *const p4tc_sys::p4tc_runt_param_attrs) -> Param {
     let mut vlen: u32 = 0;
     let vptr = unsafe { p4tc_sys::p4tc_runt_param_attrs_value_get(p, &mut vlen) };
 
