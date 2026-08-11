@@ -94,7 +94,7 @@ pub struct ExternInstanceSchema {
     pub name: String,
     #[serde(default, rename = "inst_id")]
     pub id: u32,
-    #[serde(default, deserialize_with = "data_param_names")]
+    #[serde(default, rename = "params", deserialize_with = "data_param_names")]
     pub param_names: Vec<String>,
 }
 
