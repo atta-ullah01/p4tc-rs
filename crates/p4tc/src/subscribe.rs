@@ -8,6 +8,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
+struct SendPtr(*mut p4tc_sys::p4tc_runt_ctx);
+unsafe impl Send for SendPtr {}
+
 /// Background subscription listening for kernel events on a table.
 ///
 /// Created via [`Context::subscribe`].  Call [`stop`] or drop to end.
@@ -41,6 +44,7 @@ impl Drop for Subscription {
 }
 
 pub(crate) fn spawn<F>(
+    ctx: *mut p4tc_sys::p4tc_runt_ctx,
     pipeline: &str,
     table: &str,
     filter: Option<&str>,
@@ -54,9 +58,10 @@ where
     let filter = filter.map(|f| f.to_owned());
     let stop = Arc::new(AtomicBool::new(false));
     let stop2 = Arc::clone(&stop);
+    let ctx = SendPtr(ctx);
 
     let thread = thread::spawn(move || {
-        run_subscriber(pipeline, table, filter, callback, stop2);
+        run_subscriber(ctx, pipeline, table, filter, callback, stop2);
     });
 
     Ok(Subscription {
@@ -66,6 +71,7 @@ where
 }
 
 fn run_subscriber<F>(
+    ctx: SendPtr,
     pipeline: String,
     table: String,
     filter: Option<String>,
@@ -76,20 +82,13 @@ fn run_subscriber<F>(
 {
     use std::cell::Cell;
 
-    let sub_ctx = unsafe {
-        p4tc_sys::p4tc_runt_ctx_create(p4tc_sys::P4TC_TRANSPORT_NETLINK)
-    };
-    if sub_ctx.is_null() {
-        return;
-    }
-
     let c_pipe = match to_cstring(&pipeline, "pipeline") {
         Ok(c) => c,
-        Err(_) => { unsafe { p4tc_sys::p4tc_runt_ctx_destroy(sub_ctx) }; return; }
+        Err(_) => return,
     };
     let c_table = match to_cstring(&table, "table") {
         Ok(c) => c,
-        Err(_) => { unsafe { p4tc_sys::p4tc_runt_ctx_destroy(sub_ctx) }; return; }
+        Err(_) => return,
     };
     let c_filter = filter.as_deref().and_then(|f| to_cstring(f, "filter").ok());
 
@@ -113,7 +112,7 @@ fn run_subscriber<F>(
             }
         });
         if should_stop {
-            return -1;
+            return 0;
         }
 
         let phase = Phase::from_raw(phase_val);
@@ -130,7 +129,6 @@ fn run_subscriber<F>(
                 }
                 0
             }
-            Phase::Abt => -1,
             _ => 0,
         }
     }
@@ -150,7 +148,7 @@ fn run_subscriber<F>(
 
         unsafe {
             p4tc_sys::p4tc_subscribe(
-                sub_ctx,
+                ctx.0,
                 obj as *const _,
                 0,
                 Some(trampoline::<F>),
@@ -162,5 +160,4 @@ fn run_subscriber<F>(
 
     CB_PTR.with(|cell| cell.set(0));
     STOP_PTR.with(|cell| cell.set(0));
-    unsafe { p4tc_sys::p4tc_runt_ctx_destroy(sub_ctx) };
 }

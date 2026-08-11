@@ -76,7 +76,7 @@ impl<'a> GetBuilder<'a> {
                     }
                     0
                 }
-                Phase::Abt => -1,
+                Phase::Abt => 0,
                 _ => 0,
             }
         }

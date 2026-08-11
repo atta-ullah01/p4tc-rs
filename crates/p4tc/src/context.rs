@@ -42,6 +42,27 @@ impl Context {
         crate::table::GetBuilder::new(self, pipeline, table)
     }
 
+    /// Flush all entries from a table.
+    pub fn flush<'a>(&'a self, pipeline: &'a str, table: &'a str) -> crate::table::DeleteBuilder<'a> {
+        crate::table::DeleteBuilder::new(self, pipeline, table)
+    }
+
+    pub fn extern_insert<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternInsertBuilder<'a> {
+        crate::extern_::ExternInsertBuilder::new(self, pipeline, kind, instance)
+    }
+
+    pub fn extern_update<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternUpdateBuilder<'a> {
+        crate::extern_::ExternUpdateBuilder::new(self, pipeline, kind, instance)
+    }
+
+    pub fn extern_delete<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternDeleteBuilder<'a> {
+        crate::extern_::ExternDeleteBuilder::new(self, pipeline, kind, instance)
+    }
+
+    pub fn extern_get<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternGetBuilder<'a> {
+        crate::extern_::ExternGetBuilder::new(self, pipeline, kind, instance)
+    }
+
     /// Subscribe to real-time events on a table.
     pub fn subscribe<F>(
         &self, pipeline: &str, table: &str, callback: F,
@@ -49,7 +70,7 @@ impl Context {
     where
         F: FnMut(&[crate::table::TableEntry], crate::types::Phase) + Send + 'static,
     {
-        crate::subscribe::spawn(pipeline, table, None, callback)
+        crate::subscribe::spawn(self.as_ptr(), pipeline, table, None, callback)
     }
 
     /// Subscribe with a filter expression.
@@ -59,7 +80,7 @@ impl Context {
     where
         F: FnMut(&[crate::table::TableEntry], crate::types::Phase) + Send + 'static,
     {
-        crate::subscribe::spawn(pipeline, table, Some(filter), callback)
+        crate::subscribe::spawn(self.as_ptr(), pipeline, table, Some(filter), callback)
     }
 }
 

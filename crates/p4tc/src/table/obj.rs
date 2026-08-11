@@ -163,7 +163,7 @@ pub(crate) fn fire_crud_with_cb<F: FnMut(crate::types::Phase)>(
             }
         });
         match phase {
-            crate::types::Phase::Abt => -1,
+            crate::types::Phase::Abt => 0,
             _ => 0,
         }
     }
