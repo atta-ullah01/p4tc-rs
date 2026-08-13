@@ -12,9 +12,14 @@ unsafe impl Sync for Context {}
 impl Context {
     pub fn new(transport: Transport) -> Result<Self> {
         let ptr = unsafe { p4tc_sys::p4tc_runt_ctx_create(transport as i32) };
-        NonNull::new(ptr)
-            .map(|inner| Self { inner })
-            .ok_or_else(|| Error::Context(std::io::Error::last_os_error()))
+        let inner = NonNull::new(ptr)
+            .ok_or_else(|| Error::Context(std::io::Error::last_os_error()))?;
+
+        unsafe {
+            p4tc_sys::p4tc_runt_ctx_dflt_cb_set(inner.as_ptr(), Some(default_callback));
+        }
+
+        Ok(Self { inner })
     }
 
     pub(crate) fn as_ptr(&self) -> *mut p4tc_sys::p4tc_runt_ctx {
@@ -47,16 +52,8 @@ impl Context {
         crate::table::DeleteBuilder::new(self, pipeline, table)
     }
 
-    pub fn extern_insert<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternInsertBuilder<'a> {
-        crate::extern_::ExternInsertBuilder::new(self, pipeline, kind, instance)
-    }
-
     pub fn extern_update<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternUpdateBuilder<'a> {
         crate::extern_::ExternUpdateBuilder::new(self, pipeline, kind, instance)
-    }
-
-    pub fn extern_delete<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternDeleteBuilder<'a> {
-        crate::extern_::ExternDeleteBuilder::new(self, pipeline, kind, instance)
     }
 
     pub fn extern_get<'a>(&'a self, pipeline: &'a str, kind: &'a str, instance: &'a str) -> crate::extern_::ExternGetBuilder<'a> {
@@ -88,4 +85,13 @@ impl Drop for Context {
     fn drop(&mut self) {
         unsafe { p4tc_sys::p4tc_runt_ctx_destroy(self.inner.as_ptr()) }
     }
+}
+
+unsafe extern "C" fn default_callback(
+    _obj: *const p4tc_sys::p4tc_obj,
+    _ctx: *mut p4tc_sys::p4tc_runt_ctx,
+    _cookie: *mut u64,
+    _phase: libc::c_int,
+) -> libc::c_int {
+    0
 }

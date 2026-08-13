@@ -39,19 +39,6 @@ impl<'a> ExternBuilder<'a> {
         self
     }
 
-    #[cfg(feature = "schema")]
-    pub fn fill_dummy_params(mut self, schema: &crate::schema::PipelineSchema) -> Self {
-        if let Some(ext) = schema.get_extern(self.kind) {
-            if let Some(inst) = ext.get_instance(self.instance) {
-                let n = inst.param_names.len();
-                if self.params.is_empty() && n > 0 {
-                    self.params = vec!["0".into(); n];
-                }
-            }
-        }
-        self
-    }
-
     fn build_obj(&self) -> Result<ExtObjHandle> {
         ExtObjHandle::new(self.pipeline, self.kind, self.instance, self.key, &self.params)
     }
@@ -128,26 +115,6 @@ impl<'a> ExternBuilder<'a> {
     }
 }
 
-pub struct ExternInsertBuilder<'a>(ExternBuilder<'a>);
-
-impl<'a> ExternInsertBuilder<'a> {
-    pub(crate) fn new(ctx: &'a Context, pipeline: &'a str, kind: &'a str, instance: &'a str) -> Self {
-        Self(ExternBuilder::new(ctx, pipeline, kind, instance))
-    }
-
-    pub fn key(mut self, k: u32) -> Self { self.0 = self.0.key(k); self }
-    pub fn param(mut self, value: &str) -> Self { self.0 = self.0.param(value); self }
-    pub fn params(mut self, values: &[&str]) -> Self { self.0 = self.0.params(values); self }
-
-    pub fn execute(self) -> Result<()> {
-        self.0.fire(p4tc_sys::p4tc_create, "extern_insert")
-    }
-
-    pub fn execute_with<F: FnMut(&[ExternEntry], Phase)>(self, mut cb: F) -> Result<()> {
-        self.0.fire_with_cb(p4tc_sys::p4tc_create, "extern_insert", &mut cb)
-    }
-}
-
 pub struct ExternUpdateBuilder<'a>(ExternBuilder<'a>);
 
 impl<'a> ExternUpdateBuilder<'a> {
@@ -168,29 +135,6 @@ impl<'a> ExternUpdateBuilder<'a> {
     }
 }
 
-pub struct ExternDeleteBuilder<'a>(ExternBuilder<'a>);
-
-impl<'a> ExternDeleteBuilder<'a> {
-    pub(crate) fn new(ctx: &'a Context, pipeline: &'a str, kind: &'a str, instance: &'a str) -> Self {
-        Self(ExternBuilder::new(ctx, pipeline, kind, instance))
-    }
-
-    pub fn key(mut self, k: u32) -> Self { self.0 = self.0.key(k); self }
-
-    #[cfg(feature = "schema")]
-    pub fn schema(mut self, s: &crate::schema::PipelineSchema) -> Self {
-        self.0 = self.0.fill_dummy_params(s); self
-    }
-
-    pub fn execute(self) -> Result<()> {
-        self.0.fire(p4tc_sys::p4tc_del, "extern_delete")
-    }
-
-    pub fn execute_with<F: FnMut(&[ExternEntry], Phase)>(self, mut cb: F) -> Result<()> {
-        self.0.fire_with_cb(p4tc_sys::p4tc_del, "extern_delete", &mut cb)
-    }
-}
-
 pub struct ExternGetBuilder<'a>(ExternBuilder<'a>);
 
 impl<'a> ExternGetBuilder<'a> {
@@ -199,11 +143,6 @@ impl<'a> ExternGetBuilder<'a> {
     }
 
     pub fn key(mut self, k: u32) -> Self { self.0 = self.0.key(k); self }
-
-    #[cfg(feature = "schema")]
-    pub fn schema(mut self, s: &crate::schema::PipelineSchema) -> Self {
-        self.0 = self.0.fill_dummy_params(s); self
-    }
 
     pub fn execute<F: FnMut(&[ExternEntry], Phase)>(self, mut cb: F) -> Result<()> {
         self.0.fire_with_cb(p4tc_sys::p4tc_get, "extern_get", &mut cb)

@@ -5,7 +5,7 @@ use crate::ffi_util::to_cstring;
 use crate::table::Param;
 use std::ffi::CString;
 
-pub use builders::{ExternDeleteBuilder, ExternGetBuilder, ExternInsertBuilder, ExternUpdateBuilder};
+pub use builders::{ExternGetBuilder, ExternUpdateBuilder};
 
 /// RAII guard for a `p4tc_obj` configured as EXTERN.
 pub(crate) struct ExtObjHandle {
@@ -25,16 +25,24 @@ impl ExtObjHandle {
         let c_kind = to_cstring(kind, "kind")?;
         let c_inst = to_cstring(instance, "instance")?;
 
-        let c_params: Vec<CString> = params.iter()
-            .map(|p| to_cstring(p, "param"))
-            .collect::<Result<_>>()?;
-        let ptrs: Vec<*const libc::c_char> = c_params.iter().map(|c| c.as_ptr()).collect();
-
-        let ext = unsafe {
-            p4tc_sys::p4tc_create_runt_ext(
-                ptr, c_kind.as_ptr(), c_inst.as_ptr(),
-                key, c_params.len() as i32, ptrs.as_ptr(),
-            )
+        let ext = if params.is_empty() {
+            unsafe {
+                p4tc_sys::p4tc_create_runt_ext(
+                    ptr, c_kind.as_ptr(), c_inst.as_ptr(),
+                    key, 0, std::ptr::null(),
+                )
+            }
+        } else {
+            let c_params: Vec<CString> = params.iter()
+                .map(|p| to_cstring(p, "param"))
+                .collect::<Result<_>>()?;
+            let ptrs: Vec<*const libc::c_char> = c_params.iter().map(|c| c.as_ptr()).collect();
+            unsafe {
+                p4tc_sys::p4tc_create_runt_ext(
+                    ptr, c_kind.as_ptr(), c_inst.as_ptr(),
+                    key, c_params.len() as i32, ptrs.as_ptr(),
+                )
+            }
         };
         if ext.is_null() {
             unsafe { p4tc_sys::p4tc_obj_destroy(ptr) };
