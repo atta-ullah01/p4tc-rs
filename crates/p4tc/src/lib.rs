@@ -21,4 +21,7 @@ pub use table::{Action, DeleteBuilder, GetBuilder, InsertBuilder, Param, TableEn
 pub use types::{Entity, MsgFlags, ObjType, Phase, Policy, Transport};
 
 #[cfg(feature = "schema")]
-pub use schema::PipelineSchema;
+pub use schema::{
+    ActionSchema, ExternInstanceSchema, ExternSchema, KeyFieldSchema, ParamSchema,
+    PipelineSchema, TableSchema,
+};
