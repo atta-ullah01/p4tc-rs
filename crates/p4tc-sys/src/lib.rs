@@ -118,7 +118,7 @@ unsafe extern "C" {
     pub fn p4tc_runt_tbl_attrs_dyn_get(e: *const p4tc_runt_tbl_attrs) -> c_int;
     pub fn p4tc_runt_tbl_attrs_aging_get(e: *const p4tc_runt_tbl_attrs) -> c_uint;
 
-    // table entry → action iterators
+    // table entry -> action iterators
     pub fn p4tc_runt_tbl_attrs_act_first(e: *const p4tc_runt_tbl_attrs) -> *const p4tc_runt_act_attrs;
     pub fn p4tc_runt_tbl_attrs_act_next(e: *const p4tc_runt_tbl_attrs, cur: *const p4tc_runt_act_attrs) -> *const p4tc_runt_act_attrs;
 
@@ -126,7 +126,7 @@ unsafe extern "C" {
     pub fn p4tc_runt_act_attrs_name_get(a: *const p4tc_runt_act_attrs) -> *const c_char;
     pub fn p4tc_runt_act_attrs_index_get(a: *const p4tc_runt_act_attrs) -> c_uint;
 
-    // action → param iterators
+    // action -> param iterators
     pub fn p4tc_runt_act_attrs_param_first(a: *const p4tc_runt_act_attrs) -> *const p4tc_runt_param_attrs;
     pub fn p4tc_runt_act_attrs_param_next(a: *const p4tc_runt_act_attrs, cur: *const p4tc_runt_param_attrs) -> *const p4tc_runt_param_attrs;
 

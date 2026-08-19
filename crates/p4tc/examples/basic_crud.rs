@@ -43,7 +43,8 @@ fn main() {
         .execute(|entries, phase| {
             println!("  phase={:?}, {} entries", phase, entries.len());
             for e in entries {
-                println!("  table={}, key={:02x?}, prio={}", e.table_name, e.key, e.priority);
+                // e.key_fields is a decoded HashMap, e.g. {"dstAddr": Ipv4("10.0.0.1")}
+                println!("  table={}, key={:?}, prio={}", e.table_name, e.key_fields, e.priority);
                 for a in &e.actions {
                     println!("    action={}", a.name);
                     for p in &a.params {
@@ -90,7 +91,7 @@ fn main() {
         .execute(|entries, phase| {
             println!("  phase={:?}, {} entries", phase, entries.len());
             for e in entries {
-                println!("  key={:02x?}", e.key);
+                println!("  key={:?}", e.key_fields);
                 for a in &e.actions {
                     for p in &a.params {
                         println!("    {}: {}", p.name, p.display_value());

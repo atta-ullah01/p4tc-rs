@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ParamSchema {
@@ -159,7 +160,9 @@ impl PipelineSchema {
         let tables = raw.tables.into_iter().map(|t| (t.name.clone(), t)).collect();
         let externs = raw.externs.into_iter().map(|e| (e.name.clone(), e)).collect();
 
-        Some(Self { name: name.to_owned(), tables, externs })
+        let schema = Self { name: name.to_owned(), tables, externs };
+        register_schema(schema.clone());
+        Some(schema)
     }
 
     pub fn get_table(&self, name: &str) -> Option<&TableSchema> {
@@ -188,4 +191,24 @@ fn resolve_path(name: &str, template_path: Option<&str>) -> Option<PathBuf> {
     if p.exists() { return Some(p); }
 
     None
+}
+
+// -- Global schema registry ---------------------------------------------------
+// Populated by PipelineSchema::load, queried by parse_obj to decode keys.
+
+static REGISTRY: Mutex<Option<HashMap<String, PipelineSchema>>> = Mutex::new(None);
+
+fn register_schema(schema: PipelineSchema) {
+    let mut guard = REGISTRY.lock().unwrap();
+    let map = guard.get_or_insert_with(HashMap::new);
+    map.insert(schema.name.clone(), schema);
+}
+
+/// Look up a table schema by pipeline name + table path.
+pub(crate) fn get_table_schema(pipeline: &str, table: &str) -> Option<TableSchema> {
+    let guard = REGISTRY.lock().unwrap();
+    guard.as_ref()
+        .and_then(|m| m.get(pipeline))
+        .and_then(|p| p.get_table(table))
+        .cloned()
 }

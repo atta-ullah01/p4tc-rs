@@ -31,7 +31,7 @@ fn main() {
     let ctx_crud = Context::new(Transport::Netlink)
         .expect("context creation failed");
 
-    // Start subscription — callback receives (&[TableEntry], Phase)
+    // Start subscription, callback receives (&[TableEntry], Phase)
     println!("subscribe ...");
     let event_count = Arc::new(AtomicUsize::new(0));
     let ec = event_count.clone();

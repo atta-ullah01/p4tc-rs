@@ -17,7 +17,7 @@ pub use error::{Error, Result};
 pub use extern_::{ExternEntry, ExternUpdateBuilder, ExternGetBuilder};
 pub use pipeline::Pipeline;
 pub use subscribe::Subscription;
-pub use table::{Action, DeleteBuilder, GetBuilder, InsertBuilder, Param, TableEntry, UpdateBuilder};
+pub use table::{Action, DecodedValue, DeleteBuilder, GetBuilder, InsertBuilder, Param, TableEntry, UpdateBuilder};
 pub use types::{Entity, MsgFlags, ObjType, Phase, Policy, Transport};
 
 #[cfg(feature = "schema")]

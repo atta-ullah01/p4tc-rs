@@ -1,5 +1,5 @@
 // Example: extern update and get.
-// Externs only support update and get — no insert or delete.
+// Externs only support update and get, no insert or delete.
 //
 // Pipeline setup (inside the P4TC VM):
 //   tar xzf examples/register.tgz -C ~

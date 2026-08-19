@@ -34,11 +34,18 @@ impl<'a> GetBuilder<'a> {
         self
     }
 
-    pub fn execute<F>(self, mut callback: F) -> Result<()>
+    pub fn execute<F>(self, callback: F) -> Result<()>
     where
         F: FnMut(&[TableEntry], Phase),
     {
         use std::cell::Cell;
+
+        // Pipeline/table packed with the closure for the trampoline.
+        struct CbState<F> {
+            cb: F,
+            pipeline: String,
+            table: String,
+        }
 
         thread_local! {
             static CB_PTR: Cell<usize> = const { Cell::new(0) };
@@ -67,10 +74,13 @@ impl<'a> GetBuilder<'a> {
                 Phase::Sot | Phase::Mot => {
                     if !obj_ptr.is_null() {
                         CB_PTR.with(|cell| {
-                            let ptr = cell.get() as *mut F;
+                            let ptr = cell.get() as *mut CbState<F>;
                             if !ptr.is_null() {
-                                let entries = unsafe { parse::parse_obj(obj_ptr) };
-                                unsafe { (*ptr)(&entries, phase) };
+                                let state = unsafe { &mut *ptr };
+                                let entries = unsafe {
+                                    parse::parse_obj(obj_ptr, &state.pipeline, &state.table)
+                                };
+                                (state.cb)(&entries, phase);
                             }
                         });
                     }
@@ -81,7 +91,13 @@ impl<'a> GetBuilder<'a> {
             }
         }
 
-        CB_PTR.with(|cell| cell.set(&mut callback as *mut F as usize));
+        let mut state = CbState {
+            cb: callback,
+            pipeline: self.pipeline.to_owned(),
+            table: self.table.to_owned(),
+        };
+
+        CB_PTR.with(|cell| cell.set(&mut state as *mut CbState<F> as usize));
 
         let ret = unsafe {
             p4tc_sys::p4tc_get(
