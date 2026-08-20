@@ -53,13 +53,21 @@ ctx.update("my_pipeline", "ingress/my_table")
 ```
 
 **Get:**
-Retrieving an entry requires a callback to process the results.
+Retrieving an entry requires a callback to process the results. When a schema is
+loaded (via `INTROSPECTION`), key bytes are automatically decoded into named fields:
 ```rust
 ctx.get("my_pipeline", "ingress/my_table")
     .key("10.0.0.1")
     .execute(|entries, _phase| {
         for entry in entries {
-            println!("Got entry: {:?}", entry);
+            // entry.key_fields is a HashMap of decoded values
+            println!("key: {:?}", entry.key_fields);  // {"dstAddr": Ipv4("10.0.0.1")}
+            for act in &entry.actions {
+                println!("action: {}", act.name);
+                for p in &act.params {
+                    println!("  {}: {}", p.name, p.display_value());
+                }
+            }
         }
     })
     .unwrap();
@@ -81,7 +89,9 @@ ctx.delete("my_pipeline", "ingress/my_table")
 // Fetch all entries
 ctx.dump("my_pipeline", "ingress/my_table")
     .execute(|entries, _| {
-        println!("got {} entries", entries.len());
+        for e in entries {
+            println!("key={:?}", e.key_fields);
+        }
     })
     .unwrap();
 
@@ -104,7 +114,8 @@ ctx.extern_update("my_pipeline", "Register", "ingress.reg1")
 
 **Get Extern:**
 
-Extern get requires a callback. The `Param.value` field is `Vec<u8>` (raw bytes).
+Extern get requires a callback. Use `p.decoded()` to get a typed value, or
+`p.display_value()` for a human-readable string:
 ```rust
 ctx.extern_get("my_pipeline", "Register", "ingress.reg1")
     .key(1)
@@ -112,43 +123,103 @@ ctx.extern_get("my_pipeline", "Register", "ingress.reg1")
         for e in entries {
             println!("key={}", e.key);
             for p in &e.params {
-                println!("  {}: {:02x?}", p.name, p.value);
+                println!("  {}: {}", p.name, p.display_value());
             }
         }
     })
     .unwrap();
 ```
 
-## 5. Callbacks and Phases
+## 5. Response Types
+
+### `TableEntry`
+
+| Field | Type | Description |
+|---|---|---|
+| `table_name` | `String` | Full table path, e.g. `"ingress/nh_table"` |
+| `key_fields` | `HashMap<String, DecodedValue>` | Decoded key fields — `{"dstAddr": Ipv4("10.0.0.1")}` |
+| `key` | `Vec<u8>` | Raw key bytes (advanced use) |
+| `priority` | `u32` | Entry priority |
+| `actions` | `Vec<Action>` | List of actions on this entry |
+
+### `Action`
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | `String` | Full action path, e.g. `"ingress/send_nh"` |
+| `params` | `Vec<Param>` | Action parameters |
+
+### `Param`
+
+| Field / Method | Type | Description |
+|---|---|---|
+| `name` | `String` | Parameter name |
+| `decoded()` | `DecodedValue` | Typed value — `Int`, `Ipv4`, `Ipv6`, `Mac`, or `Raw` |
+| `display_value()` | `String` | Human-readable string |
+| `value` | `Vec<u8>` | Raw bytes (advanced use) |
+| `type_name` | `String` | P4 type name from schema |
+
+### `DecodedValue`
+
+Type-aware enum with a `Display` impl:
+- `Ipv4(String)` → `"10.0.0.1"`
+- `Ipv6(String)` → `"::1"`
+- `Mac(String)` → `"00:aa:bb:cc:dd:ee"`
+- `Int(u64)` → `2` (ifindex, bit fields)
+- `Raw(Vec<u8>)` → hex bytes
+
+## 6. Callbacks and Phases
 
 Operations like `get`, `extern_get`, and `subscribe` deliver results via callbacks.
 The callback signature is `FnMut(&[TableEntry], Phase)` or `FnMut(&[ExternEntry], Phase)`.
 
 The bindings internally filter phases — your callback is only invoked with actual
 data (`Phase::Sot` or `Phase::Mot`). You do not need to match on `Eot` or `Abt`.
-Callbacks always return `0` to the C API internally.
 
-## 6. Subscription
+This signature is consistent across all operations: `get`, `dump`, `extern_get`,
+and `subscribe` all deliver `(&[T], Phase)`.
+
+## 7. Subscription
 
 Subscribe to real-time table events. Internally, `p4tc_subscribe()` registers
 the subscription (returns a `sub_id`), and a background thread runs
 `p4tc_subscribe_resp_handle()` where the C library handles events via epoll.
 
+The callback signature matches `get`/`dump` — it receives a slice of `TableEntry`
+with decoded `key_fields`:
+
 ```rust
-let mut sub = ctx.subscribe("my_pipeline", "ingress/my_table", |entries, phase| {
-    for entry in entries {
-        println!("Event phase {:?}: {:?}", phase, entry);
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+// Subscription and CRUD need separate contexts.
+let ctx_sub = Context::new(Transport::Netlink).unwrap();
+let ctx_crud = Context::new(Transport::Netlink).unwrap();
+
+let event_count = Arc::new(AtomicUsize::new(0));
+let ec = event_count.clone();
+let mut sub = ctx_sub.subscribe("my_pipeline", "ingress/my_table", move |entries, phase| {
+    ec.fetch_add(entries.len(), Ordering::Relaxed);
+    for e in entries {
+        println!("event: key={:?}", e.key_fields);
     }
 }).unwrap();
 
-// Do other work...
+// Trigger events from the CRUD context
+ctx_crud.insert("my_pipeline", "ingress/my_table")
+    .key("10.0.0.1")
+    .action("ingress/drop")
+    .execute()
+    .unwrap();
+
+std::thread::sleep(std::time::Duration::from_secs(1));
 
 sub.stop();  // calls p4tc_unsubscribe, joins the thread
+println!("total events: {}", event_count.load(Ordering::Relaxed));
 ```
 
-`Subscription` implements `Drop`, so it auto-cleans up when it goes out of
-scope. You can also consume it with `sub.join()` (which calls `stop()`
-internally).
+> **Important**: Subscription and CRUD must use **separate** `Context` objects.
+> A subscription socket enters a continuous listen state and cannot be used
+> for outgoing commands at the same time.
 
 For filtered subscriptions:
 
@@ -158,9 +229,15 @@ let mut sub = ctx.subscribe_filtered("pipe", "ingress/t", "srcAddr=10.0.0.1",
 ).unwrap();
 ```
 
-## 7. Schema Validation
+## 8. Schema Validation
 
-If you enable the `schema` feature in `Cargo.toml`, you can parse the JSON schema to inspect table and extern definitions.
+If you enable the `schema` feature in `Cargo.toml`, you can parse the JSON schema
+at provision time. The schema is used for two things:
+
+1. **Input validation**: Dict-based key and action params are validated against
+   the schema and serialized in the correct field order.
+2. **Output decoding**: Response key bytes and action params are automatically
+   decoded into typed values (`TableEntry.key_fields`, `Param.decoded()`).
 
 ```rust
 #[cfg(feature = "schema")]
@@ -173,15 +250,17 @@ If you enable the `schema` feature in `Cargo.toml`, you can parse the JSON schem
 }
 ```
 
-## 8. Error Handling
+## 9. Error Handling
 
 Operations return a `Result<T, p4tc::Error>`. Common failure modes include:
 - `Error::Provision`: Failed to load the pipeline JSON (check `INTROSPECTION`).
 - `Error::Crud`: The kernel rejected the operation (e.g., invalid key format or missing entry).
 - `Error::Object`: Internal failure when building the FFI object.
 
-## 9. Gotchas
+## 10. Notes
 
-- **Cookie Alignment**: Callbacks use user-provided closures by passing pointers through a thread-local variable, bypassing C's `cookie` parameter safely.
-- **ACK Flag**: The `MsgFlags::ACK` flag is handled internally by the library. Do not set it manually.
-- **Pipeline Sealing**: The pipeline is sealed and provisioned via `Pipeline::provision`. You cannot perform operations before doing this.
+1. **Separate Contexts for Subscribe**: A subscription socket is in a continuous
+   listen state — always use a dedicated `Context` for subscriptions and a
+   separate `Context` for CRUD operations.
+2. **ACK Flag**: The `MsgFlags::ACK` flag is handled internally by the library. Do not set it manually.
+3. **Pipeline Sealing**: The pipeline is sealed and provisioned via `Pipeline::provision`. You cannot perform operations before doing this.
