@@ -4,11 +4,6 @@ use crate::table::parse;
 use crate::types::Phase;
 use crate::TableEntry;
 
-use std::thread::{self, JoinHandle};
-
-struct SendPtr(*mut p4tc_sys::p4tc_runt_ctx);
-unsafe impl Send for SendPtr {}
-
 /// Holds the user closure with pipeline/table for the trampoline.
 struct CbState {
     cb: Box<dyn FnMut(&[TableEntry], Phase) + Send + 'static>,
@@ -18,15 +13,13 @@ struct CbState {
 
 /// Background table event subscription.
 ///
-/// Uses `p4tc_subscribe` / `p4tc_subscribe_resp_handle` /
-/// `p4tc_unsubscribe` internally. The C library runs the event
-/// loop via epoll.
+/// The C library spawns an internal thread via
+/// `p4tc_subscribe_resp_handle` to dispatch events.
 ///
 /// Created via [`Context::subscribe`](crate::Context::subscribe).
 pub struct Subscription {
-    ctx: SendPtr,
+    ctx: *mut p4tc_sys::p4tc_runt_ctx,
     sub_id: i32,
-    thread: Option<JoinHandle<()>>,
     state_ptr: *mut CbState,
     cookie_ptr: *mut u64,
 }
@@ -36,18 +29,15 @@ unsafe impl Send for Subscription {}
 unsafe impl Sync for Subscription {}
 
 impl Subscription {
-    /// Returns true if the background thread is still running.
+    /// Returns true if the subscription is active.
     pub fn active(&self) -> bool {
-        self.thread.as_ref().map_or(false, |t| !t.is_finished())
+        self.sub_id >= 0
     }
 
-    /// Cancel and join the background thread.
+    /// Cancel the subscription.
     pub fn stop(&mut self) {
         if self.sub_id >= 0 {
-            unsafe { p4tc_sys::p4tc_unsubscribe(self.ctx.0, self.sub_id) };
-            if let Some(t) = self.thread.take() {
-                let _ = t.join();
-            }
+            unsafe { p4tc_sys::p4tc_unsubscribe(self.ctx, self.sub_id) };
             self.sub_id = -1;
         }
     }
@@ -123,10 +113,9 @@ where
         }
     }
 
-    // Register the subscription (non-blocking).
+    // Register the subscription.
     let obj = unsafe { p4tc_sys::p4tc_obj_create(c_pipe.as_ptr(), p4tc_sys::P4TC_OBJ_TABLE) };
     if obj.is_null() {
-        // Cleanup on early exit
         unsafe {
             let _ = Box::from_raw(cookie_ptr);
             let _ = Box::from_raw(state_ptr);
@@ -151,7 +140,6 @@ where
     unsafe { p4tc_sys::p4tc_obj_destroy(obj) };
 
     if sub_id < 0 {
-        // Cleanup on failure
         unsafe {
             let _ = Box::from_raw(cookie_ptr);
             let _ = Box::from_raw(state_ptr);
@@ -159,18 +147,12 @@ where
         return Err(Error::Subscribe(std::io::Error::last_os_error()));
     }
 
-    // resp_handle blocks, run in a thread.
-    let ctx_addr = ctx as usize;
-    let sid = sub_id;
-    let thread = thread::spawn(move || {
-        let ctx_ptr = ctx_addr as *mut p4tc_sys::p4tc_runt_ctx;
-        unsafe { p4tc_sys::p4tc_subscribe_resp_handle(ctx_ptr, sid) };
-    });
+    // Spawns an internal thread in the library; returns immediately.
+    unsafe { p4tc_sys::p4tc_subscribe_resp_handle(ctx, sub_id) };
 
     Ok(Subscription {
-        ctx: SendPtr(ctx),
+        ctx,
         sub_id,
-        thread: Some(thread),
         state_ptr,
         cookie_ptr,
     })

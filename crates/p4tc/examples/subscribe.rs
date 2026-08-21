@@ -1,5 +1,4 @@
 // Example: event subscription.
-// Uses a separate context for CRUD while subscription is active.
 //
 // Pipeline setup (inside the P4TC VM):
 //   tar xzf examples/register.tgz -C ~
@@ -25,32 +24,29 @@ fn main() {
     let _pipe = Pipeline::provision(PIPE, None)
         .expect("provision failed (is INTROSPECTION set?)");
 
-    // Subscription and CRUD need separate contexts.
-    let ctx_sub = Context::new(Transport::Netlink)
-        .expect("context creation failed");
-    let ctx_crud = Context::new(Transport::Netlink)
+    let ctx = Context::new(Transport::Netlink)
         .expect("context creation failed");
 
     // Start subscription, callback receives (&[TableEntry], Phase)
     println!("subscribe ...");
     let event_count = Arc::new(AtomicUsize::new(0));
     let ec = event_count.clone();
-    let mut sub = ctx_sub.subscribe(PIPE, TABLE, move |entries, phase| {
+    let mut sub = ctx.subscribe(PIPE, TABLE, move |entries, phase| {
         ec.fetch_add(entries.len(), Ordering::Relaxed);
         println!("  event: phase={:?}, {} entries", phase, entries.len());
     }).expect("subscribe failed");
     println!("  active={}", sub.active());
 
-    // Trigger some events (on a different context)
+    // Trigger some events
     println!("insert (triggers event) ...");
-    ctx_crud.insert(PIPE, TABLE)
+    ctx.insert(PIPE, TABLE)
         .key("10.0.0.1")
         .action("ingress/drop")
         .execute()
         .unwrap();
 
     println!("delete (triggers event) ...");
-    ctx_crud.delete(PIPE, TABLE)
+    ctx.delete(PIPE, TABLE)
         .key("10.0.0.1")
         .execute()
         .unwrap();

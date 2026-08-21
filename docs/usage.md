@@ -191,21 +191,18 @@ with decoded `key_fields`:
 ```rust
 use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 
-// Subscription and CRUD need separate contexts.
-let ctx_sub = Context::new(Transport::Netlink).unwrap();
-let ctx_crud = Context::new(Transport::Netlink).unwrap();
+let ctx = Context::new(Transport::Netlink).unwrap();
 
 let event_count = Arc::new(AtomicUsize::new(0));
 let ec = event_count.clone();
-let mut sub = ctx_sub.subscribe("my_pipeline", "ingress/my_table", move |entries, phase| {
+let mut sub = ctx.subscribe("my_pipeline", "ingress/my_table", move |entries, phase| {
     ec.fetch_add(entries.len(), Ordering::Relaxed);
     for e in entries {
         println!("event: key={:?}", e.key_fields);
     }
 }).unwrap();
 
-// Trigger events from the CRUD context
-ctx_crud.insert("my_pipeline", "ingress/my_table")
+ctx.insert("my_pipeline", "ingress/my_table")
     .key("10.0.0.1")
     .action("ingress/drop")
     .execute()
@@ -213,13 +210,9 @@ ctx_crud.insert("my_pipeline", "ingress/my_table")
 
 std::thread::sleep(std::time::Duration::from_secs(1));
 
-sub.stop();  // calls p4tc_unsubscribe, joins the thread
+sub.stop();
 println!("total events: {}", event_count.load(Ordering::Relaxed));
 ```
-
-> **Important**: Subscription and CRUD must use **separate** `Context` objects.
-> A subscription socket enters a continuous listen state and cannot be used
-> for outgoing commands at the same time.
 
 For filtered subscriptions:
 
@@ -256,11 +249,3 @@ Operations return a `Result<T, p4tc::Error>`. Common failure modes include:
 - `Error::Provision`: Failed to load the pipeline JSON (check `INTROSPECTION`).
 - `Error::Crud`: The kernel rejected the operation (e.g., invalid key format or missing entry).
 - `Error::Object`: Internal failure when building the FFI object.
-
-## 10. Notes
-
-1. **Separate Contexts for Subscribe**: A subscription socket is in a continuous
-   listen state — always use a dedicated `Context` for subscriptions and a
-   separate `Context` for CRUD operations.
-2. **ACK Flag**: The `MsgFlags::ACK` flag is handled internally by the library. Do not set it manually.
-3. **Pipeline Sealing**: The pipeline is sealed and provisioned via `Pipeline::provision`. You cannot perform operations before doing this.
